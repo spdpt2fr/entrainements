@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Diagnostic Supabase</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-card {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .success { border-left: 4px solid #10b981; }
+        .error { border-left: 4px solid #ef4444; }
+        .warning { border-left: 4px solid #f59e0b; }
+        
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Diagnostic Supabase - Application d'Entraînement</h1>
+    
+    <div class="test-card">
+        <h3>📋 Configuration</h3>
+        <p><strong>URL:</strong> <span id="supabaseUrl"></span></p>
+        <p><strong>Clé:</strong> <span id="supabaseKey"></span></p>
+    </div>
+
+    <div class="test-card">
+        <h3>🔍 Tests de Connectivité</h3>
+        <button onclick="testConnection()">Test Connexion Basique</button>
+        <button onclick="testTable()">Test Table workouts</button>
+        <button onclick="createTable()">Créer Table workouts</button>
+        <button onclick="testInsert()">Test Insertion</button>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Configuration
+        const SUPABASE_URL = 'https://skfvfzhdtekfqlcqdnyc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrZnZmemhkdGVrZnFsY3FkbnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5MjY5MzgsImV4cCI6MjA2NjUwMjkzOH0.lrNiH7qx4lObhO83UpSDWUfHJCUvBsODqYPtt36QcEc';
+
+        // Initialiser
+        document.getElementById('supabaseUrl').textContent = SUPABASE_URL;
+        document.getElementById('supabaseKey').textContent = SUPABASE_ANON_KEY.substring(0, 30) + '...';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-card ${type}`;
+            div.innerHTML = `<pre>${message}</pre>`;
+            results.appendChild(div);
+            console.log(message);
+        }
+
+        async function testConnection() {
+            log('🔍 Test de connexion basique...', 'warning');
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                if (error) {
+                    log(`❌ Erreur auth: ${error.message}`, 'error');
+                } else {
+                    log('✅ Connexion Supabase OK', 'success');
+                }
+            } catch (error) {
+                log(`❌ Erreur connexion: ${error.message}`, 'error');
+            }
+        }
+
+        async function testTable() {
+            log('🔍 Test de la table workouts...', 'warning');
+            try {
+                const { data, error } = await supabase
+                    .from('workouts')
+                    .select('*')
+                    .limit(1);
+                
+                if (error) {
+                    log(`❌ Erreur table: ${error.message}`, 'error');
+                    if (error.message.includes('relation "public.workouts" does not exist')) {
+                        log('💡 La table workouts n\'existe pas. Cliquez sur "Créer Table workouts"', 'warning');
+                    }
+                } else {
+                    log(`✅ Table workouts OK (${data.length} lignes trouvées)`, 'success');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function createTable() {
+            log('🔧 Création de la table workouts...', 'warning');
+            try {
+                const { data, error } = await supabase.rpc('exec', {
+                    sql: `
+                        CREATE TABLE IF NOT EXISTS workouts (
+                            id SERIAL PRIMARY KEY,
+                            date DATE NOT NULL,
+                            activity VARCHAR(50) NOT NULL,
+                            duration INTEGER NOT NULL,
+                            intensity VARCHAR(20) NOT NULL,
+                            distance DECIMAL(5,2) DEFAULT 0,
+                            calories INTEGER DEFAULT 0,
+                            notes TEXT,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                        );
+
+                        ALTER TABLE workouts ENABLE ROW LEVEL SECURITY;
+
+                        DROP POLICY IF EXISTS "Accès libre" ON workouts;
+                        CREATE POLICY "Accès libre" ON workouts FOR ALL USING (true);
+
+                        CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(date DESC);
+                        CREATE INDEX IF NOT EXISTS idx_workouts_created ON workouts(created_at DESC);
+                    `
+                });
+
+                if (error) {
+                    log(`❌ Erreur création: ${error.message}`, 'error');
+                    log('💡 Essayez manuellement dans SQL Editor de Supabase:', 'warning');
+                    log(`
+CREATE TABLE IF NOT EXISTS workouts (
+    id SERIAL PRIMARY KEY,
+    date DATE NOT NULL,
+    activity VARCHAR(50) NOT NULL,
+    duration INTEGER NOT NULL,
+    intensity VARCHAR(20) NOT NULL,
+    distance DECIMAL(5,2) DEFAULT 0,
+    calories INTEGER DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE workouts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Accès libre" ON workouts FOR ALL USING (true);
+                    `, 'warning');
+                } else {
+                    log('✅ Table workouts créée avec succès!', 'success');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function testInsert() {
+            log('🔍 Test d\'insertion...', 'warning');
+            try {
+                const testData = {
+                    date: '2025-06-26',
+                    activity: 'course',
+                    duration: 30,
+                    intensity: 'modere',
+                    distance: 5.0,
+                    calories: 300,
+                    notes: 'Test d\'insertion'
+                };
+
+                const { data, error } = await supabase
+                    .from('workouts')
+                    .insert([testData])
+                    .select();
+
+                if (error) {
+                    log(`❌ Erreur insertion: ${error.message}`, 'error');
+                } else {
+                    log(`✅ Insertion réussie! ID: ${data[0].id}`, 'success');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // Tests automatiques au chargement
+        window.onload = async () => {
+            await testConnection();
+            await testTable();
+        };
+    </script>
+</body>
+</html>
