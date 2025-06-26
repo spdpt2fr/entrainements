@@ -1,0 +1,26 @@
+{
+  "name": "suivi-entrainements-web",
+  "version": "1.0.0",
+  "description": "Application web de suivi d'entraînements avec synchronisation cloud",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 3000",
+    "build": "echo 'Application statique - pas de build nécessaire'",
+    "deploy": "netlify deploy --prod --dir ."
+  },
+  "keywords": [
+    "fitness",
+    "workout",
+    "tracking",
+    "web-app",
+    "supabase"
+  ],
+  "author": "Votre nom",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/[VOTRE-USERNAME]/suivi-entrainements.git"
+  }
+}
