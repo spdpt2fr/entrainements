@@ -455,13 +455,18 @@
         // ====== FONCTIONS SUPABASE ======
         async function testConnection() {
             try {
+                console.log('🔍 Test de connexion Supabase...');
                 const { data, error } = await supabase.from('workouts').select('*').limit(1);
-                if (error) throw error;
+                if (error) {
+                    console.error('❌ Erreur Supabase:', error);
+                    throw error;
+                }
                 isOnline = true;
                 updateSyncStatus('🟢 Synchronisé', 'sync-online');
+                console.log('✅ Connexion Supabase réussie');
                 return true;
             } catch (error) {
-                console.error('Erreur de connexion:', error);
+                console.error('❌ Erreur de connexion:', error);
                 isOnline = false;
                 updateSyncStatus('🔴 Hors ligne', 'sync-error');
                 return false;
@@ -751,35 +756,39 @@
             
             // Test de connexion à Supabase
             updateSyncStatus('⏳ Test de connexion...', 'sync-offline');
-            const connected = await testConnection();
             
-            if (connected) {
-                try {
-                    await loadDataFromCloud();
-                    console.log('✅ Données chargées depuis Supabase');
-                } catch (error) {
-                    console.error('❌ Erreur chargement:', error);
-                    // Charger depuis le stockage local en cas d'erreur
+            // Délai plus court pour éviter l'attente
+            setTimeout(async () => {
+                const connected = await testConnection();
+                
+                if (connected) {
+                    try {
+                        await loadDataFromCloud();
+                        console.log('✅ Données chargées depuis Supabase');
+                    } catch (error) {
+                        console.error('❌ Erreur chargement:', error);
+                        // Charger depuis le stockage local en cas d'erreur
+                        const offlineData = localStorage.getItem('workouts_offline');
+                        if (offlineData) {
+                            workouts = JSON.parse(offlineData);
+                            updateSyncStatus('⚠️ Mode hors ligne', 'sync-offline');
+                        }
+                    }
+                } else {
+                    // Charger depuis le stockage local
                     const offlineData = localStorage.getItem('workouts_offline');
                     if (offlineData) {
                         workouts = JSON.parse(offlineData);
-                        updateSyncStatus('⚠️ Mode hors ligne', 'sync-offline');
+                        console.log('📱 Données chargées depuis le stockage local');
                     }
                 }
-            } else {
-                // Charger depuis le stockage local
-                const offlineData = localStorage.getItem('workouts_offline');
-                if (offlineData) {
-                    workouts = JSON.parse(offlineData);
-                    console.log('📱 Données chargées depuis le stockage local');
-                }
-            }
-            
-            // Initialiser l'interface
-            setDefaultDate();
-            updateDisplay();
-            
-            console.log('✅ Application initialisée');
+                
+                // Initialiser l'interface
+                setDefaultDate();
+                updateDisplay();
+                
+                console.log('✅ Application initialisée');
+            }, 1000); // Délai réduit à 1 seconde
         }
 
         // Démarrer l'application
